@@ -1,0 +1,5 @@
+{
+  "name": "3D Satellite Launch Journey",
+  "description": "An interactive, scroll-driven 3D simulation of a satellite launch, journeying from Earth to orbit, built with React and Three.js.",
+  "requestFramePermissions": []
+}
