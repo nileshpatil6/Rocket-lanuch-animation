@@ -822,7 +822,7 @@ const ThreeScene: React.FC<ThreeSceneProps> = ({ setLoading, onSceneUpdate, came
       
       if (intersects.length > 0) {
         // Redirect to TerrautoMATE AI website
-        window.location.href = 'https://eyeterra.vercel.app/';
+        window.location.href = 'https://eyeeterra.vercel.app/';
       }
     };
     
