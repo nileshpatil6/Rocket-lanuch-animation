@@ -123,55 +123,6 @@ const createParticleTexture = () => {
     return new THREE.CanvasTexture(canvas);
 };
 
-// Generate procedural grass texture
-const generateGrassTexture = (width: number, height: number) => {
-    const canvas = document.createElement('canvas');
-    canvas.width = width; canvas.height = height;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return null;
-    
-    // Base green
-    ctx.fillStyle = '#2d5a2d';
-    ctx.fillRect(0, 0, width, height);
-    
-    // Add grass variation
-    for (let i = 0; i < width * height / 4; i++) {
-        const x = Math.random() * width;
-        const y = Math.random() * height;
-        const shade = Math.random() * 40 - 20;
-        ctx.fillStyle = `rgb(${45 + shade}, ${90 + shade}, ${45 + shade})`;
-        ctx.fillRect(x, y, 2, 2);
-    }
-    
-    const texture = new THREE.CanvasTexture(canvas);
-    texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
-    return texture;
-};
-
-// Generate launch pad concrete texture
-const generateConcreteTexture = (width: number, height: number) => {
-    const canvas = document.createElement('canvas');
-    canvas.width = width; canvas.height = height;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return null;
-    
-    ctx.fillStyle = '#808080';
-    ctx.fillRect(0, 0, width, height);
-    
-    // Add concrete variation and cracks
-    for (let i = 0; i < width * height / 8; i++) {
-        const x = Math.random() * width;
-        const y = Math.random() * height;
-        const shade = Math.random() * 60 - 30;
-        ctx.fillStyle = `rgb(${128 + shade}, ${128 + shade}, ${128 + shade})`;
-        ctx.fillRect(x, y, 1, 1);
-    }
-    
-    const texture = new THREE.CanvasTexture(canvas);
-    texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
-    return texture;
-};
-
 // Procedural rocket metal texture suite: diffuse(albedo), roughness, normal approximation
 const generateRocketMetalTextures = (w: number, h: number) => {
     const albedoCanvas = document.createElement('canvas'); albedoCanvas.width = w; albedoCanvas.height = h;
@@ -291,6 +242,7 @@ const ThreeScene: React.FC<ThreeSceneProps> = ({ setLoading, onSceneUpdate, came
 
     const lerp = (start: number, end: number, alpha: number) => start * (1 - alpha) + end * alpha;
     const easeInOutCubic = (t: number) => t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+    const easeInOutQuint = (t: number) => t < 0.5 ? 16 * t * t * t * t * t : 1 - Math.pow(-2 * t + 2, 5) / 2;
 
     const loadingManager = new THREE.LoadingManager(() => {
         setLoading(false);
@@ -300,7 +252,9 @@ const ThreeScene: React.FC<ThreeSceneProps> = ({ setLoading, onSceneUpdate, came
     });
     const textureLoader = new THREE.TextureLoader(loadingManager);
 
-        const scene = new THREE.Scene();
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x000000);
+    scene.fog = new THREE.Fog(0x87CEEB, 100, 800);
         const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 3000);
         const renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
@@ -375,72 +329,6 @@ const ThreeScene: React.FC<ThreeSceneProps> = ({ setLoading, onSceneUpdate, came
         // - Softer contrast: bump ambient light intensity or hemisphereLight intensity
         // - More dramatic edges: increase rimLight intensity or move its position further behind Z+
 
-    // --- LAUNCH SITE ENVIRONMENT ---
-    // Create terrain ground plane
-    const grassTexture = generateGrassTexture(512, 512);
-    grassTexture.repeat.set(20, 20);
-    const terrainMaterial = new THREE.MeshStandardMaterial({ 
-        map: grassTexture, 
-        roughness: 0.8,
-        color: 0x90c090
-    });
-    const terrain = new THREE.Mesh(new THREE.PlaneBufferGeometry(2000, 2000, 64, 64), terrainMaterial);
-    terrain.rotation.x = -Math.PI / 2;
-    terrain.position.y = -2;
-    terrain.receiveShadow = true;
-    scene.add(terrain);
-    
-    // Launch pad
-    const concreteTexture = generateConcreteTexture(256, 256);
-    concreteTexture.repeat.set(4, 4);
-    const launchPadMaterial = new THREE.MeshStandardMaterial({ map: concreteTexture, roughness: 0.9 });
-    const launchPad = new THREE.Mesh(new THREE.CylinderBufferGeometry(15, 15, 1, 32), launchPadMaterial);
-    launchPad.position.y = -1.5;
-    launchPad.receiveShadow = true;
-    scene.add(launchPad);
-    
-    // Launch tower structure
-    const towerMaterial = new THREE.MeshStandardMaterial({ color: 0x444444, metalness: 0.8, roughness: 0.3 });
-    const tower = new THREE.Mesh(new THREE.BoxBufferGeometry(2, 50, 2), towerMaterial);
-    tower.position.set(25, 24, 0);
-    tower.castShadow = true;
-    scene.add(tower);
-    
-    // Add some trees around launch site
-    const treeMaterial = new THREE.MeshStandardMaterial({ color: 0x0d4d0d });
-    const trunkMaterial = new THREE.MeshStandardMaterial({ color: 0x8b4513 });
-    for (let i = 0; i < 20; i++) {
-        const angle = (i / 20) * Math.PI * 2;
-        const distance = 80 + Math.random() * 100;
-        const x = Math.cos(angle) * distance;
-        const z = Math.sin(angle) * distance;
-        
-        // Tree trunk
-        const trunk = new THREE.Mesh(new THREE.CylinderBufferGeometry(1, 1.5, 8), trunkMaterial);
-        trunk.position.set(x, 2, z);
-        trunk.castShadow = true;
-        scene.add(trunk);
-        
-        // Tree foliage
-        const foliage = new THREE.Mesh(new THREE.SphereBufferGeometry(6, 16, 16), treeMaterial);
-        foliage.position.set(x, 10, z);
-        foliage.castShadow = true;
-        scene.add(foliage);
-    }
-    
-    // Distant mountains (low poly)
-    const mountainMaterial = new THREE.MeshStandardMaterial({ color: 0x4a5568, roughness: 0.9 });
-    for (let i = 0; i < 8; i++) {
-        const angle = (i / 8) * Math.PI * 2;
-        const distance = 800 + Math.random() * 200;
-        const x = Math.cos(angle) * distance;
-        const z = Math.sin(angle) * distance;
-        const height = 40 + Math.random() * 60;
-        
-        const mountain = new THREE.Mesh(new THREE.ConeBufferGeometry(30 + Math.random() * 20, height), mountainMaterial);
-        mountain.position.set(x, height / 2 - 2, z);
-        scene.add(mountain);
-    }
 
     const starVertices = [];
     for (let i = 0; i < 10000; i++) { starVertices.push((Math.random() - 0.5) * 3000, (Math.random() - 0.5) * 3000, (Math.random() - 0.5) * 3000); }
@@ -449,8 +337,232 @@ const ThreeScene: React.FC<ThreeSceneProps> = ({ setLoading, onSceneUpdate, came
     const stars = new THREE.Points(starGeometry, new THREE.PointsMaterial({ color: 0xffffff, size: 0.9 }));
     scene.add(stars);
 
+    // --- GROUND LAUNCH ENVIRONMENT ---
+    const groundGroup = new THREE.Group();
+    
+    // Ground terrain with smoother rolling hills using layered noise
+    const terrainGeometry = new THREE.PlaneGeometry(2000, 2000, 200, 200);
+    const groundPositions = terrainGeometry.attributes.position.array as Float32Array;
+    for (let i = 0; i < groundPositions.length; i += 3) {
+      const x = groundPositions[i];
+      const z = groundPositions[i + 1];
+      const dist = Math.sqrt(x * x + z * z);
+      // Layered smooth waves for natural rolling hills
+      const height = 
+        Math.sin(x * 0.008) * 4 + 
+        Math.cos(z * 0.008) * 4 + 
+        Math.sin(x * 0.02) * 1.5 + 
+        Math.cos(z * 0.02) * 1.5 +
+        Math.sin(dist * 0.005) * 2;
+      groundPositions[i + 2] = height;
+    }
+    terrainGeometry.computeVertexNormals();
+    const terrainMaterial = new THREE.MeshStandardMaterial({ 
+      color: 0x3a6b1f,
+      roughness: 0.95,
+      metalness: 0.0
+    });
+    const terrain = new THREE.Mesh(terrainGeometry, terrainMaterial);
+    terrain.rotation.x = -Math.PI / 2;
+    terrain.position.y = -2;
+    terrain.receiveShadow = true;
+    groundGroup.add(terrain);
+    
+    // Launch pad with detailed structure
+    const launchPadBase = new THREE.Mesh(
+      new THREE.CylinderGeometry(25, 28, 2, 32),
+      new THREE.MeshStandardMaterial({ color: 0x555555, roughness: 0.7, metalness: 0.3 })
+    );
+    launchPadBase.position.y = -2;
+    launchPadBase.castShadow = true;
+    launchPadBase.receiveShadow = true;
+    groundGroup.add(launchPadBase);
+    
+    const launchPadTop = new THREE.Mesh(
+      new THREE.CylinderGeometry(18, 20, 1.5, 32),
+      new THREE.MeshStandardMaterial({ color: 0x666666, roughness: 0.6, metalness: 0.4 })
+    );
+    launchPadTop.position.y = -0.25;
+    launchPadTop.castShadow = true;
+    launchPadTop.receiveShadow = true;
+    groundGroup.add(launchPadTop);
+    
+    // Support pillars
+    for (let i = 0; i < 4; i++) {
+      const pillar = new THREE.Mesh(
+        new THREE.CylinderGeometry(1.5, 1.5, 15, 8),
+        new THREE.MeshStandardMaterial({ color: 0x888888, roughness: 0.6, metalness: 0.5 })
+      );
+      const angle = (i / 4) * Math.PI * 2;
+      pillar.position.x = Math.cos(angle) * 22;
+      pillar.position.z = Math.sin(angle) * 22;
+      pillar.position.y = -9;
+      pillar.castShadow = true;
+      groundGroup.add(pillar);
+    }
+    
+    // Trees scattered naturally with varied species and clustering
+    const treeCount = 50;
+    for (let i = 0; i < treeCount; i++) {
+      const treeType = Math.random();
+      const trunk = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.6, 1.0, treeType > 0.5 ? 12 : 8, 8),
+        new THREE.MeshStandardMaterial({ color: 0x4a3820, roughness: 0.95 })
+      );
+      
+      // Different foliage shapes
+      const foliage = new THREE.Group();
+      if (treeType > 0.7) {
+        // Cone shaped (pine-like)
+        const cone = new THREE.Mesh(
+          new THREE.ConeGeometry(3.5, 10, 8),
+          new THREE.MeshStandardMaterial({ color: 0x2d5016, roughness: 0.85 })
+        );
+        cone.position.y = 8;
+        foliage.add(cone);
+      } else {
+        // Layered spheres (oak-like)
+        for (let j = 0; j < 3; j++) {
+          const sphere = new THREE.Mesh(
+            new THREE.SphereGeometry(3 - j * 0.5, 8, 8),
+            new THREE.MeshStandardMaterial({ color: 0x2d5016, roughness: 0.85 })
+          );
+          sphere.position.y = 6 + j * 2;
+          sphere.scale.set(1, 1.2, 1);
+          foliage.add(sphere);
+        }
+      }
+      
+      const tree = new THREE.Group();
+      tree.add(trunk);
+      tree.add(foliage);
+      
+      // Natural clustering with some randomness
+      const cluster = Math.floor(i / 8);
+      const clusterAngle = (cluster / 6) * Math.PI * 2;
+      const clusterRadius = 180 + Math.random() * 350;
+      const spread = 50;
+      
+      tree.position.x = Math.cos(clusterAngle) * clusterRadius + (Math.random() - 0.5) * spread;
+      tree.position.z = Math.sin(clusterAngle) * clusterRadius + (Math.random() - 0.5) * spread;
+      tree.position.y = -2;
+      tree.scale.setScalar(0.7 + Math.random() * 0.8);
+      tree.rotation.y = Math.random() * Math.PI * 2;
+      tree.castShadow = true;
+      tree.receiveShadow = true;
+      
+      groundGroup.add(tree);
+    }
+    
+    // Mountains in distance with snow caps
+    const mountainCount = 12;
+    for (let i = 0; i < mountainCount; i++) {
+      const mountainBase = new THREE.Mesh(
+        new THREE.ConeGeometry(60 + Math.random() * 40, 120 + Math.random() * 80, 6),
+        new THREE.MeshStandardMaterial({ color: 0x4a4a4a, roughness: 0.95 })
+      );
+      const snowCap = new THREE.Mesh(
+        new THREE.ConeGeometry(40 + Math.random() * 20, 50 + Math.random() * 30, 6),
+        new THREE.MeshStandardMaterial({ color: 0xe8e8e8, roughness: 0.7 })
+      );
+      snowCap.position.y = 70 + Math.random() * 20;
+      
+      const mountain = new THREE.Group();
+      mountain.add(mountainBase);
+      mountain.add(snowCap);
+      
+      const angle = (i / mountainCount) * Math.PI * 2;
+      const radius = 650 + Math.random() * 150;
+      mountain.position.x = Math.cos(angle) * radius;
+      mountain.position.z = Math.sin(angle) * radius;
+      mountain.position.y = 20 + Math.random() * 30;
+      mountain.scale.y = 0.9 + Math.random() * 0.4;
+      mountain.rotation.y = Math.random() * Math.PI * 2;
+      mountain.receiveShadow = true;
+      groundGroup.add(mountain);
+    }
+    
+    // Sky dome with gradient
+    const skyGeometry = new THREE.SphereGeometry(2500, 32, 32);
+    const skyMaterial = new THREE.ShaderMaterial({
+      side: THREE.BackSide,
+      fog: false,
+      vertexShader: `
+        varying vec3 vWorldPosition;
+        void main() {
+          vec4 worldPosition = modelMatrix * vec4(position, 1.0);
+          vWorldPosition = worldPosition.xyz;
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        }
+      `,
+      fragmentShader: `
+        varying vec3 vWorldPosition;
+        void main() {
+          float h = normalize(vWorldPosition).y;
+          vec3 skyColor = mix(vec3(0.53, 0.81, 0.92), vec3(0.1, 0.4, 0.8), h);
+          gl_FragColor = vec4(skyColor, 1.0);
+        }
+      `
+    });
+    const sky = new THREE.Mesh(skyGeometry, skyMaterial);
+    groundGroup.add(sky);
+    
+    // Clouds with multiple puffs for realistic shapes
+    const cloudCount = 25;
+    const cloudGroups: THREE.Group[] = [];
+    for (let i = 0; i < cloudCount; i++) {
+      const cloudGroup = new THREE.Group();
+      const puffCount = 3 + Math.floor(Math.random() * 3);
+      
+      for (let j = 0; j < puffCount; j++) {
+        const puff = new THREE.Mesh(
+          new THREE.SphereGeometry(15 + Math.random() * 15, 8, 8),
+          new THREE.MeshStandardMaterial({ 
+            color: 0xffffff, 
+            roughness: 1.0, 
+            transparent: true, 
+            opacity: 0.8,
+            fog: true
+          })
+        );
+        puff.position.x = (Math.random() - 0.5) * 50;
+        puff.position.y = (Math.random() - 0.5) * 10;
+        puff.position.z = (Math.random() - 0.5) * 20;
+        cloudGroup.add(puff);
+      }
+      
+      cloudGroup.position.x = (Math.random() - 0.5) * 1200;
+      cloudGroup.position.y = 80 + Math.random() * 120;
+      cloudGroup.position.z = (Math.random() - 0.5) * 1200;
+      cloudGroups.push(cloudGroup);
+      groundGroup.add(cloudGroup);
+    }
+    
+    // Sun light for ground scene with warmer tone
+    const sunLight = new THREE.DirectionalLight(0xfff4e6, 3.0);
+    sunLight.position.set(500, 800, 300);
+    sunLight.castShadow = true;
+    sunLight.shadow.mapSize.set(2048, 2048);
+    sunLight.shadow.camera.left = -500;
+    sunLight.shadow.camera.right = 500;
+    sunLight.shadow.camera.top = 500;
+    sunLight.shadow.camera.bottom = -500;
+    sunLight.shadow.bias = -0.0001;
+    groundGroup.add(sunLight);
+    
+    // Ambient ground light for softer shadows
+    const groundAmbient = new THREE.AmbientLight(0x87CEEB, 0.6);
+    groundGroup.add(groundAmbient);
+    
+    // Ground hemisphere light for natural outdoor lighting
+    const groundHemi = new THREE.HemisphereLight(0x87CEEB, 0x3a6b1f, 0.8);
+    groundGroup.add(groundHemi);
+    
+    scene.add(groundGroup);
+    groundGroup.visible = true; // Start with ground visible
+
     const earthGroup = new THREE.Group();
-    const earthRadius = 500; // Much larger Earth for realistic curvature
+    const earthRadius = 50;
     const earthMaterial = new THREE.MeshStandardMaterial({
         map: textureLoader.load('https://unpkg.com/three-globe/example/img/earth-blue-marble.jpg'),
         bumpMap: textureLoader.load('https://unpkg.com/three-globe/example/img/earth-topology.png'),
@@ -460,15 +572,12 @@ const ThreeScene: React.FC<ThreeSceneProps> = ({ setLoading, onSceneUpdate, came
     const earth = new THREE.Mesh(new THREE.SphereBufferGeometry(earthRadius, 64, 64), earthMaterial);
     earth.receiveShadow = true;
     earthGroup.add(earth);
-    
-    // Position Earth far below launch site
-    earthGroup.position.y = -earthRadius - 100;
-    
+
     const cloudMaterial = new THREE.MeshStandardMaterial({
         map: textureLoader.load('https://solarsystem.nasa.gov/assets/ve-clouds-8k.png'),
         transparent: true, opacity: 0.4, blending: THREE.AdditiveBlending
     });
-    const clouds = new THREE.Mesh(new THREE.SphereBufferGeometry(earthRadius + 5, 64, 64), cloudMaterial);
+    const clouds = new THREE.Mesh(new THREE.SphereBufferGeometry(earthRadius + 0.5, 64, 64), cloudMaterial);
     earthGroup.add(clouds);
     scene.add(earthGroup);
     
@@ -538,7 +647,7 @@ const ThreeScene: React.FC<ThreeSceneProps> = ({ setLoading, onSceneUpdate, came
     for (let i = 0; i < 4; i++) { const angle = (i / 4) * Math.PI * 2; const engineBell = new THREE.Mesh(new THREE.CylinderBufferGeometry(0.2, 0.8, 2, 32), engineMetal); engineBell.position.set(Math.sin(angle) * 1.2, -2, Math.cos(angle) * 1.2); rocketGroup.add(engineBell); }
     const boosters: THREE.Group[] = []; [-3.5, 3.5].forEach(x => { const boosterGroup = new THREE.Group(); const boosterBody = new THREE.Mesh(new THREE.CylinderBufferGeometry(1, 1, 16, 32), boosterMetal); boosterGroup.add(boosterBody); const boosterNose = new THREE.Mesh(new THREE.ConeBufferGeometry(1, 2.5, 32), engineMetal); boosterNose.position.y = 8 + 1.25; boosterGroup.add(boosterNose); boosterGroup.position.set(x, 7, 0); rocketGroup.add(boosterGroup); boosters.push(boosterGroup); });
     rocketGroup.traverse((c:any) => { if (c.isMesh) c.castShadow = true; });
-    rocketGroup.position.y = 10; // Start on launch pad (ground level)
+    rocketGroup.position.y = 0; // Start on ground
     scene.add(rocketGroup);
 
     // --- SATELLITE MODEL ---
@@ -555,7 +664,7 @@ const ThreeScene: React.FC<ThreeSceneProps> = ({ setLoading, onSceneUpdate, came
     scene.add(satelliteGroup);
     
     // --- REALISTIC EXHAUST PARTICLE SYSTEM ---
-    const PARTICLE_COUNT = 5000;
+    const PARTICLE_COUNT = 5001;
     const particles: any[] = [];
     const particleGeometry = new THREE.BufferGeometry();
     const positions = new Float32Array(PARTICLE_COUNT * 3);
@@ -656,12 +765,88 @@ const ThreeScene: React.FC<ThreeSceneProps> = ({ setLoading, onSceneUpdate, came
     const handleResize = () => { camera.aspect = window.innerWidth / window.innerHeight; camera.updateProjectionMatrix(); renderer.setSize(window.innerWidth, window.innerHeight); };
     window.addEventListener('resize', handleResize);
 
+    // Click handler for Earth/Satellite - redirects after animation completes
+    const raycaster = new THREE.Raycaster();
+    const mouse = new THREE.Vector2();
+    
+    const handleMouseMove = (event: MouseEvent) => {
+      // Only show pointer cursor after scroll animation is complete (> 51%)
+      if (scrollState.percent < 51) {
+        renderer.domElement.style.cursor = 'default';
+        return;
+      }
+      
+      // Calculate mouse position in normalized device coordinates
+      mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+      mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+      
+      // Update raycaster
+      raycaster.setFromCamera(mouse, camera);
+      
+      // Check for intersections with Earth and Satellite
+      const intersectableObjects: any[] = [];
+      earth.traverse((child) => {
+        if (child instanceof THREE.Mesh) intersectableObjects.push(child);
+      });
+      satelliteGroup.traverse((child) => {
+        if (child instanceof THREE.Mesh) intersectableObjects.push(child);
+      });
+      
+      const intersects = raycaster.intersectObjects(intersectableObjects, false);
+      
+      // Change cursor to pointer when hovering over clickable objects
+      renderer.domElement.style.cursor = intersects.length > 0 ? 'pointer' : 'default';
+    };
+    
+    const handleClick = (event: MouseEvent) => {
+      // Only allow clicks after scroll animation is complete (> 51%)
+      if (scrollState.percent < 51) return;
+      
+      // Calculate mouse position in normalized device coordinates
+      mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+      mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+      
+      // Update raycaster
+      raycaster.setFromCamera(mouse, camera);
+      
+      // Check for intersections with Earth and Satellite
+      const intersectableObjects: any[] = [];
+      earth.traverse((child) => {
+        if (child instanceof THREE.Mesh) intersectableObjects.push(child);
+      });
+      satelliteGroup.traverse((child) => {
+        if (child instanceof THREE.Mesh) intersectableObjects.push(child);
+      });
+      
+      const intersects = raycaster.intersectObjects(intersectableObjects, false);
+      
+      if (intersects.length > 0) {
+        // Redirect to TerrautoMATE AI website
+        window.location.href = 'https://eyeterra.vercel.app/';
+      }
+    };
+    
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('click', handleClick);
+
+
     const animate = (time: number) => {
         if (!isMounted) return;
         const deltaTime = clock.getDelta();
+        const elapsedTime = clock.getElapsedTime();
         
         earth.rotation.y += 0.0005;
         clouds.rotation.y += 0.0007;
+        
+        // Animate ground clouds drifting
+        if (groundGroup.visible) {
+          groundGroup.children.forEach((child) => {
+            if (child instanceof THREE.Group && child.children[0]?.material?.transparent) {
+              child.position.x += deltaTime * 2;
+              if (child.position.x > 700) child.position.x = -700;
+            }
+          });
+        }
 
         const p = scrollState.percent / 100;
         let missionData: MissionData = { phase: '', altitude: 0, velocity: 0 };
@@ -671,38 +856,109 @@ const ThreeScene: React.FC<ThreeSceneProps> = ({ setLoading, onSceneUpdate, came
         let targetLookAt = new THREE.Vector3();
         let primarySubject = rocketGroup;
 
-        const launchpadY = 10; // Ground level launch pad
+        const launchpadY = earthRadius + 3;
+        const groundLaunchY = 0; // Ground level
 
         // --- ANIMATION PHASES ---
-        if (p <= 0.10) { 
-            rocketGroup.position.y = launchpadY; exhaustIntensity = 0;
-            missionData = { phase: 'Pre-Launch', altitude: 0, velocity: 0 };
-        } else if (p <= 0.25) { 
-            rocketGroup.position.y = launchpadY; exhaustIntensity = lerp(0, 0.1, (p - 0.10) / 0.15); // Steam vent effect
+        // NEW: Ground launch sequence (0-15%)
+        if (p <= 0.05) {
+            // Pre-launch on ground
+            rocketGroup.position.y = groundLaunchY;
+            groundGroup.visible = true;
+            earthGroup.visible = false;
+            stars.visible = false;
+            exhaustIntensity = 0;
+            missionData = { phase: 'Pre-Launch Countdown', altitude: 0, velocity: 0 };
+        } else if (p <= 0.10) {
+            // Ignition on ground
+            const phaseProgress = (p - 0.05) / 0.05;
+            rocketGroup.position.y = groundLaunchY;
+            groundGroup.visible = true;
+            earthGroup.visible = false;
+            stars.visible = false;
+            exhaustIntensity = lerp(0, 0.3, phaseProgress);
+            missionData = { phase: 'Ignition Sequence', altitude: 0, velocity: 0 };
+        } else if (p <= 0.35) {
+            // Liftoff from ground - ultra slow, extremely gradual (EXTENDED DURATION)
+            const phaseProgress = easeInOutCubic((p - 0.10) / 0.25);
+            // Very slow climb with extended time
+            rocketGroup.position.y = lerp(groundLaunchY, groundLaunchY + 50, phaseProgress);
+            groundGroup.visible = true;
+            earthGroup.visible = false;
+            stars.visible = false;
+            exhaustIntensity = Math.min(0.7, phaseProgress * 1.2);
+            missionData = { phase: 'Ground Liftoff', altitude: rocketGroup.position.y * 2, velocity: lerp(0, 0.18, phaseProgress) };
+        } else if (p <= 0.50) {
+            // Transition to space view - ULTRA LONG ultra smooth with quintic easing
+            const phaseProgress = easeInOutQuint((p - 0.35) / 0.15);
+            rocketGroup.position.y = lerp(groundLaunchY + 50, launchpadY, phaseProgress);
+            // Ultra gradual crossfade with overlapping visibility
+            const fadeOut = Math.max(0, Math.min(1, (phaseProgress - 0.5) / 0.35));
+            const fadeIn = Math.max(0, Math.min(1, (phaseProgress - 0.05) / 0.5));
+            groundGroup.visible = fadeOut < 0.98;
+            earthGroup.visible = fadeIn > 0.02;
+            stars.visible = fadeIn > 0.12;
+            exhaustIntensity = lerp(0.45, 0.08, phaseProgress);
+            missionData = { phase: 'Ascending to Orbit', altitude: rocketGroup.position.y * 5, velocity: lerp(0.18, 0.9, phaseProgress) };
+        } 
+        // EXISTING: Space-based animation continues (shifted to start at 50%)
+        else if (p <= 0.53) { 
+            rocketGroup.position.y = launchpadY;
+            groundGroup.visible = false;
+            earthGroup.visible = true;
+            stars.visible = true;
+            exhaustIntensity = 0;
+            missionData = { phase: 'Orbital Approach', altitude: 0, velocity: 0 };
+        } else if (p <= 0.58) { 
+            rocketGroup.position.y = launchpadY;
+            groundGroup.visible = false;
+            earthGroup.visible = true;
+            stars.visible = true;
+            exhaustIntensity = lerp(0, 0.1, (p - 0.53) / 0.05);
             missionData = { phase: 'Launch Preparation', altitude: 0, velocity: 0 };
-        } else if (p <= 0.40) { 
-            const phaseProgress = easeInOutCubic((p - 0.25) / 0.15);
-            rocketGroup.position.y = lerp(launchpadY, launchpadY + 300, phaseProgress);
+        } else if (p <= 0.72) { 
+            const phaseProgress = easeInOutCubic((p - 0.58) / 0.14);
+            rocketGroup.position.y = lerp(launchpadY, launchpadY + 250, phaseProgress);
+            groundGroup.visible = false;
+            earthGroup.visible = true;
+            stars.visible = true;
             exhaustIntensity = Math.min(1, phaseProgress * 5);
-            missionData = { phase: 'Liftoff & Ascent', altitude: (rocketGroup.position.y - launchpadY) * 2, velocity: lerp(0, 5.0, phaseProgress) };
-        } else if (p <= 0.55) {
-            // Transition to space - rocket moves to Earth-relative position
-            const phaseProgress = easeInOutCubic((p - 0.40) / 0.15);
-            const spaceY = earthRadius + 53 + (phaseProgress * 200); // Transition to current space altitude
-            rocketGroup.position.y = lerp(launchpadY + 300, spaceY, phaseProgress);
-            exhaustIntensity = lerp(1.0, 0.8, phaseProgress);
-            missionData = { phase: 'Atmospheric Exit', altitude: (rocketGroup.position.y - launchpadY) * 2, velocity: lerp(5.0, 7.5, phaseProgress) };
-        } else if (p <= 0.70) { 
-            const phaseProgress = easeInOutCubic((p - 0.50) / 0.20);
+            missionData = { phase: 'Orbital Liftoff & Ascent', altitude: (rocketGroup.position.y - earthRadius) * 5, velocity: lerp(0, 7.5, phaseProgress) };
+        } else if (p <= 0.84) { 
+            const phaseProgress = easeInOutCubic((p - 0.72) / 0.12);
+            const stageSep = 0.3;
             rocketGroup.position.y = lerp(launchpadY + 250, launchpadY + 500, phaseProgress);
-            exhaustIntensity = lerp(1.0, 0.5, phaseProgress);
-            boosters[0].position.x = lerp(-3.5, -20 - phaseProgress * 30, phaseProgress);
-            boosters[1].position.x = lerp(3.5, 20 + phaseProgress * 30, phaseProgress);
-            boosters.forEach(b => { b.rotation.z += phaseProgress * 0.02; b.position.y -= phaseProgress * 0.8; });
-            missionData = { phase: 'Booster Separation', altitude: (rocketGroup.position.y - earthRadius) * 5, velocity: lerp(7.5, 15, phaseProgress) };
-        } else if (p <= 0.85) { 
-            const phaseProgress = easeInOutCubic((p - 0.70) / 0.15);
+            groundGroup.visible = false;
+            earthGroup.visible = true;
+            stars.visible = true;
+
+            if (phaseProgress > stageSep) {
+                const sepProg = (phaseProgress - stageSep) / (1 - stageSep);
+                boosters[0].position.x = lerp(-3.5, -20 - sepProg * 30, sepProg);
+                boosters[1].position.x = lerp(3.5, 20 + sepProg * 30, sepProg);
+                boosters[0].position.y = lerp(0, -10, sepProg);
+                boosters[1].position.y = lerp(0, -10, sepProg);
+                boosters[0].rotation.z = lerp(0, -0.3, sepProg);
+                boosters[1].rotation.z = lerp(0, 0.3, sepProg);
+            } else {
+                boosters[0].position.set(-3.5, 0, -2);
+                boosters[1].position.set(3.5, 0, -2);
+                boosters[0].rotation.z = 0;
+                boosters[1].rotation.z = 0;
+            }
+
+            exhaustIntensity = phaseProgress > stageSep ? lerp(1, 0.7, (phaseProgress - stageSep) / (1 - stageSep)) : 1;
+            missionData = {
+                phase: phaseProgress > stageSep ? 'Booster Separation' : 'Orbital Ascent',
+                altitude: (rocketGroup.position.y - earthRadius) * 5,
+                velocity: lerp(7.5, 9, phaseProgress),
+            };
+        } else if (p <= 0.94) { 
+            const phaseProgress = easeInOutCubic((p - 0.84) / 0.10);
             rocketGroup.position.y = lerp(launchpadY + 500, launchpadY + 600, phaseProgress);
+            groundGroup.visible = false;
+            earthGroup.visible = true;
+            stars.visible = true;
             exhaustIntensity = 0;
             fairingL.position.x = lerp(0, -5, phaseProgress); fairingL.rotation.z = lerp(0, -0.2, phaseProgress);
             fairingR.position.x = lerp(0, 5, phaseProgress); fairingR.rotation.z = lerp(0, 0.2, phaseProgress);
@@ -715,7 +971,7 @@ const ThreeScene: React.FC<ThreeSceneProps> = ({ setLoading, onSceneUpdate, came
             primarySubject = satelliteGroup;
             missionData = { phase: 'Fairing Separation', altitude: (rocketGroup.position.y - earthRadius) * 5, velocity: lerp(15, 27.6, phaseProgress) };
         } else { 
-            const phaseProgress = easeInOutCubic((p - 0.85) / 0.15);
+            const phaseProgress = easeInOutCubic((p - 0.94) / 0.06);
             rocketGroup.position.y = lerp(launchpadY + 600, launchpadY + 580, phaseProgress);
             
             // Satellite orbital motion using continuous time-based rotation
@@ -744,30 +1000,49 @@ const ThreeScene: React.FC<ThreeSceneProps> = ({ setLoading, onSceneUpdate, came
         
         updateExhaust(deltaTime, exhaustIntensity);
 
-        if (p <= 0.10) {
-            const phaseProgress = easeInOutCubic(p / 0.10);
-            // Ground-based launch cameras
-            targetCamPos.lerpVectors(new THREE.Vector3(0, 15, 80), new THREE.Vector3(-20, 20, 50), phaseProgress);
-            targetLookAt.lerpVectors(new THREE.Vector3(0, 10, 0), new THREE.Vector3(0, launchpadY + 15, 0), phaseProgress);
+        // --- CAMERA CONTROL ---
+        if (p <= 0.05) {
+            // Pre-launch ground view - wide establishing shot
+            const phaseProgress = easeInOutCubic(p / 0.05);
+            targetCamPos.lerpVectors(new THREE.Vector3(100, 20, 100), new THREE.Vector3(85, 18, 85), phaseProgress);
+            targetLookAt.set(0, 12, 0);
+        } else if (p <= 0.10) {
+            // Ignition - slowly pushing in
+            const phaseProgress = easeInOutCubic((p - 0.05) / 0.05);
+            targetCamPos.lerpVectors(new THREE.Vector3(85, 18, 85), new THREE.Vector3(70, 20, 70), phaseProgress);
+            targetLookAt.set(0, 12, 0);
+        } else if (p <= 0.35) {
+            // Liftoff from ground - ultra slow smooth tilt following rocket (EXTENDED DURATION)
+            const phaseProgress = easeInOutCubic((p - 0.10) / 0.25);
+            targetCamPos.lerpVectors(new THREE.Vector3(70, 20, 70), new THREE.Vector3(65, 38, 65), phaseProgress);
+            targetLookAt.set(0, lerp(12, 33, phaseProgress), 0);
+        } else if (p <= 0.38) {
+            // Begin transition - camera pulls back ultra smoothly with quintic easing
+            const phaseProgress = easeInOutQuint((p - 0.35) / 0.03);
+            targetCamPos.lerpVectors(new THREE.Vector3(65, 38, 65), new THREE.Vector3(58, 60, 95), phaseProgress);
+            targetLookAt.lerpVectors(new THREE.Vector3(0, 33, 0), new THREE.Vector3(0, 31, 0), phaseProgress);
+        } else if (p <= 0.42) {
+            // Continue transition - mid stage (slow pullback)
+            const phaseProgress = easeInOutQuint((p - 0.38) / 0.04);
+            targetCamPos.lerpVectors(new THREE.Vector3(58, 60, 95), new THREE.Vector3(42, 90, 140), phaseProgress);
+            targetLookAt.lerpVectors(new THREE.Vector3(0, 31, 0), new THREE.Vector3(0, 28, 0), phaseProgress);
+        } else if (p <= 0.46) {
+            // Continue transition - revealing more space
+            const phaseProgress = easeInOutQuint((p - 0.42) / 0.04);
+            targetCamPos.lerpVectors(new THREE.Vector3(42, 90, 140), new THREE.Vector3(25, 115, 200), phaseProgress);
+            targetLookAt.lerpVectors(new THREE.Vector3(0, 28, 0), new THREE.Vector3(0, 23, 0), phaseProgress);
+        } else if (p <= 0.51) {
+            // Final approach to space view - ultra ultra gradual
+            const phaseProgress = easeInOutQuint((p - 0.46) / 0.05);
+            targetCamPos.lerpVectors(new THREE.Vector3(25, 115, 200), new THREE.Vector3(0, launchpadY + 25, 60), phaseProgress);
+            targetLookAt.lerpVectors(new THREE.Vector3(0, 23, 0), new THREE.Vector3(0, launchpadY + 20, 0), phaseProgress);
         } else {
             const currentCameraAngle = cameraAngleRef.current;
             if (currentCameraAngle === 'cinematic') {
-                if (p <= 0.25) { targetCamPos.set(-20, 20, 50); targetLookAt.set(0, launchpadY + 15, 0); } 
-                else if (p <= 0.40) { 
-                    const phaseProgress = easeInOutCubic((p - 0.25) / 0.15); 
-                    const height = rocketGroup.position.y;
-                    targetCamPos.set(-30, height + 20, 60); 
-                    targetLookAt.set(0, height, 0); 
-                } 
-                else if (p <= 0.55) {
-                    // Transition to space view
-                    const phaseProgress = easeInOutCubic((p - 0.40) / 0.15);
-                    const spaceViewY = lerp(rocketGroup.position.y + 20, earthRadius + 78, phaseProgress);
-                    targetCamPos.set(0, spaceViewY, lerp(60, 45, phaseProgress)); 
-                    targetLookAt.set(0, lerp(rocketGroup.position.y, earthRadius + 68, phaseProgress), 0); 
-                }
-                else if (p <= 0.70) { const phaseProgress = easeInOutCubic((p - 0.55) / 0.15); targetCamPos.set(65, rocketGroup.position.y + 35, 65); targetLookAt.copy(rocketGroup.position); } 
-                else if (p <= 0.85) { targetCamPos.set(-20, satelliteGroup.position.y + 10, 40); targetLookAt.copy(satelliteGroup.position); } 
+                if (p <= 0.58) { targetCamPos.set(0, launchpadY + 25, 60); targetLookAt.set(0, launchpadY + 20, 0); } 
+                else if (p <= 0.72) { const phaseProgress = easeInOutCubic((p - 0.58) / 0.14); const camAngle = phaseProgress * Math.PI * 0.5; targetCamPos.set(Math.sin(camAngle) * 30, rocketGroup.position.y + 15, 60 + Math.cos(camAngle) * 15); targetLookAt.set(0, rocketGroup.position.y, 0); } 
+                else if (p <= 0.84) { targetCamPos.set(65, rocketGroup.position.y + 35, 65); targetLookAt.copy(rocketGroup.position); } 
+                else if (p <= 0.94) { targetCamPos.set(-20, satelliteGroup.position.y + 10, 40); targetLookAt.copy(satelliteGroup.position); } 
                 else { 
                     // Camera orbits around origin showing Earth and satellite
                     const camOrbitRadius = 180; // Camera distance from origin
@@ -786,9 +1061,10 @@ const ThreeScene: React.FC<ThreeSceneProps> = ({ setLoading, onSceneUpdate, came
             else if (currentCameraAngle === 'wide') { const offset = new THREE.Vector3(180, 180, 180); targetCamPos.copy(primarySubject.position).add(offset); targetLookAt.copy(primarySubject.position); }
         }
         
-        camera.position.lerp(targetCamPos, 0.05);
+        const lerpFactor = p <= 0.51 ? 0.012 : 0.04;
+        camera.position.lerp(targetCamPos, lerpFactor);
         const currentLookAt = new THREE.Vector3().copy(camera.position).add(camera.getWorldDirection(new THREE.Vector3()));
-        currentLookAt.lerp(targetLookAt, 0.05);
+        currentLookAt.lerp(targetLookAt, lerpFactor);
         camera.lookAt(currentLookAt);
 
         if (time - lastUIUpdate > 16) { onSceneUpdateRef.current(scrollState.percent, missionData); lastUIUpdate = time; }
@@ -801,6 +1077,8 @@ const ThreeScene: React.FC<ThreeSceneProps> = ({ setLoading, onSceneUpdate, came
       cancelAnimationFrame(animationFrameId);
       window.removeEventListener('scroll', handleScroll);
       window.removeEventListener('resize', handleResize);
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('click', handleClick);
       if (mountNode && renderer.domElement) { mountNode.removeChild(renderer.domElement); }
       scene.traverse((o: any) => { 
         if (o.geometry) o.geometry.dispose(); 
