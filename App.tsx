@@ -30,23 +30,34 @@ function App() {
     setAutoScroll(prev => !prev);
   }, []);
 
-  // Auto-scroll effect
+  // Auto-scroll effect with smooth easing
   React.useEffect(() => {
     if (!autoScroll) return;
     
-    const scrollSpeed = 2; // pixels per frame
+    const scrollSpeed = 1.5; // Increased from 0.8 to 1.5 for better pacing
     let animationId: number;
+    let velocity = 0;
+    const maxVelocity = scrollSpeed;
+    const acceleration = 0.03; // Slightly faster acceleration
+    const deceleration = 0.98; // Smooth deceleration
     
     const autoScrollStep = () => {
       const maxScroll = document.documentElement.scrollHeight - window.innerHeight;
       const currentScroll = window.scrollY;
       
       if (currentScroll < maxScroll) {
-        window.scrollBy(0, scrollSpeed);
+        // Smooth acceleration
+        velocity = Math.min(velocity + acceleration, maxVelocity);
+        
+        // Apply smooth easing
+        const easedVelocity = velocity * deceleration;
+        window.scrollBy(0, easedVelocity);
+        
         animationId = requestAnimationFrame(autoScrollStep);
       } else {
         // Reset to beginning when reaching end
         setAutoScroll(false);
+        velocity = 0;
       }
     };
     
@@ -54,6 +65,7 @@ function App() {
     
     return () => {
       if (animationId) cancelAnimationFrame(animationId);
+      velocity = 0;
     };
   }, [autoScroll]);
 

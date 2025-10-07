@@ -106,6 +106,22 @@ const UIOverlay: React.FC<UIOverlayProps> = ({ loading, scrollPercent, missionDa
           </div>
         </div>
       </div>
+
+      {/* Exploration Notification - Minimalistic corner note */}
+      {scrollPercent >= 95 && (
+        <div className="absolute bottom-24 right-8 pointer-events-auto">
+          <div className="bg-black bg-opacity-40 backdrop-blur-md p-4 rounded-lg border border-cyan-500 border-opacity-30 max-w-xs">
+            <div className="flex items-start gap-3">
+              <div className="text-2xl">🛰️</div>
+              <div>
+                <p className="text-sm text-green-400 leading-relaxed">
+                  Mission complete. Click Earth or Satellite to explore Terra data.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
